@@ -43,20 +43,9 @@ def get_ht_ami_segment(ht_ami):
     else:
         return '85%+'
 
-def get_location(geometry, city_json):
-
-    geometry = MultiPolygon(geometry)
-
-    for record in city_json['features']:
-        polygon = shape(record['geometry'])
-        if polygon.contains(MultiPolygon):
-            return record['properties']['name']
-    return 'other'
-
 with open(data_path + 'geojson/Los_Angeles_Neighborhood_Map.geojson') as data_file:
     city_json = json.load(data_file)
 
-city_json
 app = Flask(__name__)
 
 @app.route("/")
@@ -67,28 +56,44 @@ def index():
 def get_data():
     all_data_block = pd.read_csv(data_path + 'Spatial_weights_pred.csv')
     pd.set_option('display.max_columns', None)
+    all_data_city['COMMNAME'].unique()
     all_data_city = all_data_block.drop(['Unnamed: 0','CB10','OBJECTID_1','GEOID10','CTCB10','BG10','X_CENTER','Y_CENTER','Shape_Leng','Shape_Area','BlockId','BlockgroupId','TractId'], axis=1)
     all_data_city_mean = all_data_city.groupby('COMMNAME').mean().reset_index().drop(['Black_Afri','Hispanic','White_Alon'],axis=1)
     all_data_ethnicity = all_data_city[['COMMNAME', 'Black_Afri','Hispanic','White_Alon']]
     all_data_ethnicity_sum = all_data_ethnicity.groupby('COMMNAME').sum().reset_index()
     all_data_city = all_data_city_mean.merge(all_data_ethnicity_sum, on='COMMNAME')
     all_data_city = all_data_city.reset_index(drop=True)
-    all_data_city
     all_data_city['COMMNAME'] = all_data_city['COMMNAME'].map(lambda x: x.lstrip('City of '))
     all_data_city['COMMNAME'] = all_data_city['COMMNAME'].map(lambda x: x.lstrip('Unincorporated - '))
     # Read file
-    city_geo = gpd.read_file('input/shape/Los Angeles Neighborhood Map.kml', driver='KML')
+    city_geo = gpd.read_file('input/shape/Los_Angeles_Neighborhood_Map.kml', driver='KML')
 
     city_data_geo = pd.merge(all_data_city, city_geo, left_on='COMMNAME', right_on='Name')
     city_data_geo = city_data_geo[['COMMNAME','Tot_r_10','Tot_r_20','Tot_r_50','ht_ami', 'population', 'co2_per_hh', 'autos_per_', 'pct_transi', 'res_densit', 'emp_gravit','emp_ndx','h_cost','Black_Afri','Hispanic','White_Alon','geometry']]
 
     city_data_geo['Tot_r_20_seg'] = city_data_geo['Tot_r_20'].apply(lambda Tot_r_20: get_accessibility_segment(Tot_r_20))
-
-
-    cols_to_keep = ['timestamp', 'longitude', 'latitude', 'phone_brand_en', 'gender', 'age_segment', 'geometry']
+    city_data_geo['ht_ami_seg'] = city_data_geo['ht_ami'].apply(lambda ht_ami: get_ht_ami_segment(ht_ami))
+    cols_to_keep = ['COMMNAME', 'Tot_r_20', 'population', 'pct_transi', 'Black_Afri','Hispanic','White_Alon', 'Tot_r_20_seg', 'ht_ami_seg']
     df_clean = city_data_geo[cols_to_keep].dropna()
 
+    data_json = df_clean.to_json(orient='records', force_ascii=False)
+
+    with open(data_path + 'geojson/Los_Angeles_Neighborhood_Map.geojson') as geo_json:
+        for i in range(len(geo_json['features'])):
+            geo_json['features'][i]['properties'].update(data_json[i])
+
     return df_clean.to_json(orient='records')
+data_json = json.loads(df_clean.to_json(orient='records', force_ascii=False))
+
+with open(data_path + 'geojson/la-county-neighborhoods-v6.geojson') as data_file:
+    geo_json = json.load(data_file)
+
+
+for geo in range(len(geo_json['features'])):
+    for name in range(len(data_json)):
+        if geo_json['features'][geo]['properties']['name']== data_json[name]['COMMNAME']:
+            print(geo_json['features'][geo]['properties']['name'])
+            geo_json['features'][geo]['properties'].update(data_json[name]) #change update function
 
 
 if __name__ == "__main__":
