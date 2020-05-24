@@ -3,11 +3,12 @@ queue()
     .await(makeGraphs);
 
 function makeGraphs(error, recordsJson) {
-	
+
+
 	//Clean data
 	var records = recordsJson;
 	var dateFormat = d3.time.format("%Y-%m-%d %H:%M:%S");
-	
+
 	records.forEach(function(d) {
 		d["timestamp"] = dateFormat.parse(d["timestamp"]);
 		d["timestamp"].setMinutes(0);
@@ -49,13 +50,6 @@ function makeGraphs(error, recordsJson) {
 	var ageSegmentChart = dc.rowChart("#age-segment-row-chart");
 	var phoneBrandChart = dc.rowChart("#phone-brand-row-chart");
 	var locationChart = dc.rowChart("#location-row-chart");
-
-
-
-	numberRecordsND
-		.formatNumber(d3.format("d"))
-		.valueAccessor(function(d){return d; })
-		.group(all);
 
 
 	timeChart
@@ -129,7 +123,7 @@ function makeGraphs(error, recordsJson) {
 	      });
 		var heat = L.heatLayer(geoData,{
 			radius: 10,
-			blur: 20, 
+			blur: 20,
 			maxZoom: 1,
 		}).addTo(map);
 
@@ -145,7 +139,7 @@ function makeGraphs(error, recordsJson) {
 		dcChart.on("filtered", function (chart, filter) {
 			map.eachLayer(function (layer) {
 				map.removeLayer(layer)
-			}); 
+			});
 			drawMap();
 		});
 	});
